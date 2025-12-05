@@ -1,0 +1,12 @@
+# System Files (macOS)
+.DS_Store
+
+# Python Environment and Artifacts
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+
+# Generated Output / Reports
+report.html
+malicious.exe
