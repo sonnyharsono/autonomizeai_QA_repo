@@ -5,7 +5,7 @@ This document outlines the core test cases for validating the Agentic Platform's
 
 ## Test Case Prioritization
 
-| Priority | Risk Profile |
+| Priority | Risk Profile | Description |
 | :--- | :--- | :--- |
 | **P1 - Critical** | Direct Patient Safety Risk (e.g., misclassification of a critical symptom). | 
 | **P2 - High** | Regulatory/Compliance Risk (e.g., storing non-compliant data) or Core Business Function Failure. |
