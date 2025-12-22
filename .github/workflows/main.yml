@@ -12,9 +12,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.11'
       - name: Install Dependencies
         run: pip install -r requirements.txt
       - name: Run Critical Safety Tests (The Blocking Gate)
         # Only P1/Critical tests run to validate the model's safety thresholds
         run: python -m pytest tests/ -m critical --no-header
+
