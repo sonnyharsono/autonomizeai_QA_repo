@@ -8,7 +8,7 @@ The system is built as a sequential data pipeline with specific safety guardrail
 
 
 1.  **Ingestion Layer:** Receives raw clinical text (e.g., EHR notes).
-2.  **Extraction Agent (NLP):** A deterministic/agentic layer that identifies symptoms, vitals, and history.
+2.  **Extraction Agent (Natural Language Processing (NLP)):** A deterministic/agentic layer that identifies symptoms, vitals, and history.
     * *Validation:* Focuses on schema accuracy and entity recognition.
 3.  **Risk Model (Inference):** A probabilistic engine that assigns a risk score ($R$) and confidence ($C$).
     * *Validation:* Focuses on clinical safety thresholds ($R \ge 0.85$ for critical symptoms).
