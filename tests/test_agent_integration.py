@@ -40,8 +40,7 @@ class TestAgentIntegration:
         
         assert "hypertension" in response["medical_history"]
         assert "chest pain" in response["symptoms"]
-        # UPDATE: Match the BP in the mock data (150/95)
-        assert response["vitals"]["bp"] == "150/95" 
+        assert response["vitals"]["bp"] == "150/95"
         assert "fever" in response["symptoms_excluded"]
 
     def test_agent_model_contract_schema(self, extraction_agent):
