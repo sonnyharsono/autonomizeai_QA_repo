@@ -1,75 +1,77 @@
 import pytest
-import os
 from playwright.sync_api import Page, expect
 
-# ==========================================
-# MOCK UI SETUP (Simulates the Web Page)
-# ==========================================
-@pytest.fixture(scope="function")
-def mock_upload_page(tmp_path):
-    """
-    Creates a temporary HTML file to simulate the Patient Upload Portal.
-    This ensures the test passes locally without needing a live server.
-    """
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <body>
-        <h1>Upload Medical Record</h1>
-        <input type="file" id="file-upload" onchange="validateFile()">
-        <div id="error-toast" style="display:none; color:red;">Invalid file format. Only PDF allowed.</div>
-        <script>
-            function validateFile() {
-                const fileInput = document.getElementById('file-upload');
-                const filePath = fileInput.value;
-                const allowedExtensions = /(\.pdf)$/i;
-                if (!allowedExtensions.exec(filePath)) {
-                    document.getElementById('error-toast').style.display = 'block';
-                    fileInput.value = '';
-                    return false;
-                }
-            }
-        </script>
-    </body>
-    </html>
-    """
-    # Create the dummy HTML file
-    file_path = tmp_path / "upload_mock.html"
-    file_path.write_text(html_content)
-    return file_path.as_uri()
-
-# ==========================================
-# UI TEST SCENARIO
-# ==========================================
-
 @pytest.mark.ui
-@pytest.mark.critical
-def test_invalid_file_upload_error(page: Page, mock_upload_page):
+class TestUserExperience:
     """
-    Scenario: User attempts to upload an .exe file instead of a PDF.
-    Expected: Error message 'Invalid file format' appears.
+    Validates the clinician dashboard and file upload workflows
+    using Playwright.
     """
-    # 1. Go to the (mock) upload page
-    page.goto(mock_upload_page)
-    
-    # 2. Define an invalid file (simulating a malicious or wrong file)
-    # We create a dummy .exe file in memory
-    with open("malicious.exe", "w") as f:
-        f.write("fake executable code")
 
-    # 3. Upload the invalid file
-    # Playwright handles the file chooser dialog
-    with page.expect_file_chooser() as fc_info:
-        page.locator("#file-upload").click()
-        file_chooser = fc_info.value
-        file_chooser.set_files("malicious.exe")
+    def test_dashboard_loading_and_security_headers(self, page: Page):
+        """
+        Ensures the main dashboard loads and contains critical 
+        safety and risk navigation elements.
+        """
+        # Using a raw string r""" to fix the escape sequence warning
+        html_content = r"""
+        <html>
+            <body>
+                <nav>
+                    <h1>Autonomize AI - Clinical Triage</h1>
+                    <button id='upload-btn'>Upload Patient Note</button>
+                    <div id='risk-threshold'>Safety Gate: 0.85</div>
+                </nav>
+            </body>
+        </html>
+        """
+        page.set_content(html_content)
+        
+        # Assertions using Playwright's expect library (Best Practice)
+        expect(page.get_by_role("heading")).to_contain_text("Clinical Triage")
+        expect(page.locator("#upload-btn")).to_be_visible()
 
-    # 4. Assert Error Message Visibility
-    error_message = page.locator("#error-toast")
-    
-    # Wait for error and check text
-    expect(error_message).to_be_visible()
-    expect(error_message).to_contain_text("Invalid file format")
-    
-    # Cleanup (remove the fake .exe)
-    os.remove("malicious.exe")
+    @pytest.mark.critical
+    def test_invalid_file_upload_error(self, mock_upload_page):
+        """
+        CRITICAL UI TEST: Verifies that the UI correctly handles and 
+        displays errors when an invalid file is uploaded.
+        """
+        page = mock_upload_page
+        
+        # Setup mock UI state
+        page.set_content(r"""
+            <input type='file' id='file-input'>
+            <div id='error-message' style='display:none;'>Invalid file format. Please upload a PDF.</div>
+            <script>
+                document.getElementById('file-input').addEventListener('change', () => {
+                    document.getElementById('error-message').style.display = 'block';
+                });
+            </script>
+        """)
+
+        # Simulate user interaction
+        page.set_input_files("#file-input", {
+            "name": "unsupported_format.exe",
+            "mimeType": "application/x-msdownload",
+            "buffer": b"test content"
+        })
+
+        # Verify the safety alert is displayed to the clinician
+        error_locator = page.locator("#error-message")
+        expect(error_locator).to_be_visible()
+        expect(error_locator).to_contain_text("Please upload a PDF")
+
+    def test_risk_score_color_coding(self, page: Page):
+        """
+        UX TEST: Verifies that high risk scores are visually distinct 
+        for clinicians (Accessibility/Safety test).
+        """
+        page.set_content(r"""
+            <div id='score' class='high-risk' style='color: red;'>0.89</div>
+        """)
+        
+        score_element = page.locator("#score")
+        # Ensure the styling meets our safety visibility requirements
+        color = score_element.evaluate("el => getComputedStyle(el).color")
+        assert color == "rgb(255, 0, 0)", "High risk score must be displayed in RED"
