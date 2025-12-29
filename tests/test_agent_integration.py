@@ -1,10 +1,21 @@
 import pytest
+import logging
+
+logger = logging.getLogger(__name__)
 
 @pytest.mark.integration
 @pytest.mark.agent
 class TestAgentIntegration:
 
     def test_basic_extraction_works(self, extraction_agent):
+        logger.info("Starting clinical entity extraction validation...")
+    
+        simple_note = "Patient has a cough."
+        response = extraction_agent.process_note(simple_note)
+    
+        logger.info(f"Agent returned confidence score: {response.get('confidence_score')}")
+    
+    assert isinstance(response, dict)
         """
         Baseline: Verifies the agent can process a simple 
         sentence and return a dictionary.
