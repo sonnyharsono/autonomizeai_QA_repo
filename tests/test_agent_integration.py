@@ -1,57 +1,50 @@
 import pytest
-import json
-from datetime import datetime
 
-# ==========================================
-# TEST SUITE
-# ==========================================
-
-@pytest.fixture
-def extraction_agent():
-    return MockExtractionAgent()
-
-@pytest.mark.agent
 @pytest.mark.integration
-def test_valid_extraction_schema(extraction_agent):
-    """
-    Scenario: Clean PDF upload.
-    Validate: Data types, required fields, and values match expected formats.
-    """
-    filename = "clean_referral.pdf"
-    result = extraction_agent.process_document(filename)
-    
-    data = result.get("extracted_data", {})
-    
-    # 1. Validate Critical Fields exist
-    assert "patient_id" in data
-    assert "diagnosis_code" in data
-    
-    # 2. Validate Data Types (Schema Validation)
-    assert isinstance(data["patient_id"], str)
-    
-    # 3. Validate Business Logic (ICD-10 format)
-    # ICD-10 codes usually start with a letter. '110' is invalid.
-    assert data["diagnosis_code"][0].isalpha(), \
-        f"Invalid Diagnosis Code: {data['diagnosis_code']}. Must start with a letter."
-
 @pytest.mark.agent
-@pytest.mark.negative
-def test_noisy_fax_handling(extraction_agent):
-    """
-    Scenario: Noisy Fax input (low confidence).
-    Validate: System should flag this for human review if confidence < 0.80.
-    """
-    filename = "noisy_fax_scanned.pdf"
-    result = extraction_agent.process_document(filename)
-    data = result.get("extracted_data", {})
-    
-    # In a real system, we don't just fail; we assert that the system *knows* it failed.
-    # The test passes if the agent correctly reports low confidence.
-    confidence = data.get("confidence_score")
-    
-    if confidence < 0.80:
-        # Expected behavior: Flag for review
-        assert True 
-    else:
-        # If confidence is high but data is bad, that's a Safety Failure.
-        assert data["first_name"] == "John", "High confidence reported on incorrect OCR data (Safety Risk)"
+class TestAgentIntegration:
+
+    def test_basic_extraction_works(self, extraction_agent):
+        """
+        Baseline: Verifies the agent can process a simple 
+        sentence and return a dictionary.
+        """
+        simple_note = "Patient has a cough."
+        response = extraction_agent.process_note(simple_note)
+        
+        assert isinstance(response, dict)
+        assert "symptoms" in response
+        assert "cough" in response["symptoms"]
+
+    def test_complex_clinical_note_extraction(self, extraction_agent):
+        """
+        Validates extraction of multiple entities from noisy text.
+        """
+        noisy_note = """
+        History of hypertension. Current complaint: acute shortness of breath 
+        and left-sided chest pain. BP is 150/90. Denies fever.
+        """
+        response = extraction_agent.process_note(noisy_note)
+        
+        assert "hypertension" in response["medical_history"]
+        assert "chest pain" in response["symptoms"]
+        assert response["vitals"]["bp"] == "150/90"
+        assert "fever" in response["symptoms_excluded"]
+
+    def test_agent_model_contract_schema(self, extraction_agent):
+        """
+        Ensures the output matches the Risk Model's expected JSON contract.
+        """
+        response = extraction_agent.process_note("Sample note")
+        required_keys = {"patient_id", "symptoms", "vitals", "confidence_score"}
+        assert required_keys.issubset(response.keys())
+
+    def test_low_confidence_flagging(self, extraction_agent):
+        """
+        Safety: Ambiguous notes must trigger a 'Human-in-the-Loop' flag.
+        """
+        ambiguous_note = "Pt. feels... maybe blue?"
+        response = extraction_agent.process_note(ambiguous_note)
+        
+        if response["confidence_score"] < 0.70:
+            assert response["requires_manual_review"] is True
