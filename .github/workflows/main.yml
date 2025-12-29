@@ -1,19 +1,25 @@
-# CI/CD Workflow demonstrating deployment gate based on critical tests
-name: Autonomize AI - QA Safety Gate
+name: Autonomize AI - Clinical Safety Gate
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  run_safety_tests:
-    name: Run Critical Tests
+  quality-assurance:
+    name: Run Safety & Integration Suite
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip' # Speeds up subsequent runs
 
       - name: Install Dependencies
         run: |
@@ -21,9 +27,18 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Playwright Browsers
-        # This downloads the actual browser engines needed for test_ui_ux.py
+        # --with-deps ensures the Ubuntu VM has the necessary system libraries
         run: npx playwright install --with-deps chromium
 
-      - name: Run Critical Safety Tests (The Blocking Gate)
-        run: python -m pytest tests/ -m critical --no-header
+      - name: Execute Critical Safety Tests
+        # We run the 'critical' marker first as the primary gate
+        run: python -m pytest tests/ -m critical --no-header --html=report.html --self-contained-html
 
+      - name: Upload Test Report
+        # This allows interviewers to download and see your professional HTML report
+        if: always() # Runs even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: clinical-safety-report
+          path: report.html
+          retention-days: 7
