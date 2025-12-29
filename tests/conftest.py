@@ -13,7 +13,7 @@ def safety_thresholds():
 
 # --- Extraction Agent Fixtures ---
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def mock_extraction_data():
     """Provides a standard 'Golden Data' structure for an extracted patient."""
     return {
@@ -82,3 +82,4 @@ def mock_upload_page(page):
         body='{"status": "success", "message": "File processed"}'
     ))
     return page
+
